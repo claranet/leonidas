@@ -1,0 +1,36 @@
+---
+
+# Leonidas rewrites the host's iptables rules, so it has to share the host's
+# network namespace and needs CAP_NET_ADMIN. The host must route the SNMP
+# traffic between pollers and devices (net.ipv4.ip_forward=1).
+
+services:
+  leonidas:
+    image: local/leonidas
+    build: .
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    environment:
+      REDIS_URL: redis://127.0.0.1:6379
+      # Local address of this host that polls are DNAT'ed to.
+      LEONIDAS_PROXY_ADDRESS: 212.82.224.105
+      LEONIDAS_REDIS_TTL_SEC: 300
+      LOG_LEVEL: info
+    volumes:
+      - /var/log/kern.log:/var/log/kern.log:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    ports:
+      - 127.0.0.1:6379:6379
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
